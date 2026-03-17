@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InspectPro</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f0f0f;color:#e5e5e5;font-family:'Courier New',monospace;min-height:100vh}
+select,input,textarea{font-family:'Courier New',monospace}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#111}::-webkit-scrollbar-thumb{background:#333}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const {useState,useEffect,useRef,createElement:h}=React;
+
+// ─── DATOS ────────────────────────────────────────────────────────────────────
+const INSPECTORES=["Brayan","Sebastian"];
+const ALMACEN_FIELDS=[
+  {key:"area_limpia",label:"Área limpia y seca",type:"check"},
+  {key:"sin_olores",label:"Área sin olores extraños",type:"check"},
+  {key:"sin_plagas",label:"Área sin roedores, insectos, aves y otros animales",type:"check"},
+  {key:"identificada",label:"Área identificada y en orden",type:"check"},
+  {key:"seguimiento_mp",label:"MP´s con identificación de su estado de seguimiento",type:"check"},
+  {key:"estibas_limpias",label:"Estibas sin suciedad y/o materia extraña",type:"check"},
+  {key:"estibas_camas",label:"MP´s en su lugar y estibas con < 6 camas",type:"check"},
+  {key:"rotacion",label:"MP´s acomodada para darle rotación",type:"check"},
+  {key:"protegidas",label:"MP´s protegidas de medio ambiente",type:"check"},
+  {key:"temperatura",label:"Temp. Ambiental entre 15-25 °C",type:"check_with_input",placeholder:"Ej: 20"},
+  {key:"ausencia_luz",label:"Ausencia de luz en techo y paredes de zona de almacenamiento",type:"check"},
+  {key:"puertas",label:"Puertas de acceso cerradas",type:"check"},
+  {key:"empaque",label:"Empaque sin rupturas, rasgaduras, etc.",type:"check"},
+  {key:"pnc",label:"PNC identificado y segregado",type:"check"},
+  {key:"fauna",label:"Estaciones de fauna nociva en óptimas condiciones y en su lugar asignado",type:"check"},
+  {key:"epp",label:"Personal con EPP adecuado para las funciones que realiza",type:"check"},
+  {key:"anaqueles",label:"Anaqueles de acero inoxidable en buen estado",type:"check"},
+];
+const RECEPCION_FIELDS=[
+  {key:"proveedor",label:"Proveedor",type:"text",placeholder:"Nombre del proveedor"},
+  {key:"producto_servicio",label:"Producto y/o Servicio",type:"text",placeholder:"Descripción"},
+  {key:"cfdi",label:"CFDI y/o Remisión",type:"text",placeholder:"Folio"},
+  {key:"fecha_est_entrega",label:"Fecha estimada de entrega",type:"date"},
+  {key:"fecha_arribo",label:"Fecha de arribo",type:"date"},
+  {key:"no_lote",label:"No. de Lote",type:"text",placeholder:"Número de lote"},
+  {key:"cantidad",label:"Cantidad",type:"text",placeholder:"Cantidad recibida"},
+  {key:"cantidad_muestrear",label:"Cantidad a muestrear (piezas)",type:"text",placeholder:"Piezas"},
+  {key:"t_higiene",label:"Muestra Higiene Personal",type:"check",group:"Transportista"},
+  {key:"t_ropa",label:"Viste ropa limpia",type:"check",group:"Transportista"},
+  {key:"c_olores",label:"Sin olores extraños",type:"check",group:"Caja de Transporte"},
+  {key:"c_techo",label:"Sin infiltración en el techo y paredes",type:"check",group:"Caja de Transporte"},
+  {key:"c_plagas",label:"Sin insectos, roedores, aves u otros animales",type:"check",group:"Caja de Transporte"},
+  {key:"c_suelo",label:"Producto sin estar en contacto directo con el suelo",type:"check",group:"Caja de Transporte"},
+  {key:"s_color",label:"Color característico sin manchas oscuras, puntos quemados, decoloraciones o presencia de partículas ajenas",type:"check",group:"Consome y/o Salsa"},
+  {key:"s_olor",label:"Olor característico sin notas rancias, químicas, húmedas o a moho",type:"check",group:"Consome y/o Salsa"},
+  {key:"s_sabor",label:"Sabor característico",type:"check",group:"Consome y/o Salsa"},
+  {key:"s_humedad",label:"Ausencia de humedad visible, terrones, apelmazamiento, puntos húmedos",type:"check",group:"Consome y/o Salsa"},
+  {key:"f_transp",label:"Transparencia uniforme; sin zonas opacas o con burbujas excesivas",type:"check",group:"Frascos y Tapas"},
+  {key:"f_boca",label:"Boca del frasco perfectamente circular, sin deformaciones que afecten el sellado",type:"check",group:"Frascos y Tapas"},
+  {key:"f_golpes",label:"Sin golpes, fisuras, grietas, astillamientos o fracturas en cuerpo, cuello o boca",type:"check",group:"Frascos y Tapas"},
+  {key:"f_limpia",label:"Superficie interna y externa limpia, libre de polvo, grasa, residuos o manchas",type:"check",group:"Frascos y Tapas"},
+  {key:"f_cuerpos",label:"Ausencia total de cuerpos extraños: vidrio suelto, fibras, insectos, partículas metálicas",type:"check",group:"Frascos y Tapas"},
+  {key:"f_tapa",label:"Tapa metálica grado alimenticio, sin abolladuras ni deformaciones",type:"check",group:"Frascos y Tapas"},
+  {key:"f_liner",label:"Liner o sello interior intacto, sin desprendimiento ni perforaciones",type:"check",group:"Frascos y Tapas"},
+  {key:"f_cierre",label:"Cierre debe permitir un sellado hermético (prueba de vacío o torque según especificación)",type:"check",group:"Frascos y Tapas"},
+  {key:"p_empaque",label:"Empaque íntegro sin perforaciones y/o fugas de producto",type:"check",group:"Parámetros de evaluación"},
+  {key:"p_humedad",label:"Sin humedad interna",type:"check",group:"Parámetros de evaluación"},
+  {key:"p_limpio",label:"Material limpio sin delaminación ni contaminación",type:"check",group:"Parámetros de evaluación"},
+  {key:"p_cuerpos",label:"Ausencia de cuerpos extraños: vidrio, metal, plástico, madera, fibras, insectos, huevecillos, larvas, insecto vivos o muertos en empaque",type:"check",group:"Parámetros de evaluación"},
+  {key:"p_abomb",label:"Sin abombamientos",type:"check",group:"Parámetros de evaluación"},
+  {key:"p_producto",label:"Producto solicitado no equivocado",type:"check",group:"Parámetros de evaluación"},
+  {key:"p_caducidad",label:"Fecha de caducidad",type:"check_with_input",inputType:"date",group:"Parámetros de evaluación"},
+  {key:"p_alergenos",label:"Declaración de alergenos: ausencia o presencia controlada",type:"check",group:"Parámetros de evaluación"},
+  {key:"p_servicio",label:"El servicio cumple con el alcance establecido en el contrato de prestación de servicios y/u orden de compra",type:"check",group:"Parámetros de evaluación"},
+  {key:"p_cert",label:"Certificado de calidad, guía de usuario, identificación de riesgos, hoja de seguridad y/o ficha técnica",type:"check",group:"Parámetros de evaluación"},
+];
+const AREA_FORMS={
+  alm1_pt:{area:"Almacén 1",title:"Registro Preservación de Producto Terminado",fields:ALMACEN_FIELDS},
+  alm2_pt:{area:"Almacén 2",title:"Registro Preservación de Producto Terminado",fields:ALMACEN_FIELDS},
+  alm1_mp:{area:"Almacén 1",title:"Registro Preservación de Materias Primas",fields:ALMACEN_FIELDS},
+  alm2_mp:{area:"Almacén 2",title:"Registro Preservación de Materias Primas",fields:ALMACEN_FIELDS},
+  recepcion:{area:"Recepción",title:"Recepción de Materias Primas",fields:RECEPCION_FIELDS},
+};
+const FORM_KEYS=Object.keys(AREA_FORMS);
+const FORM_ICONS={alm1_pt:"📦",alm2_pt:"📦",alm1_mp:"🌿",alm2_mp:"🌿",recepcion:"🚚"};
+const FORM_COLORS={alm1_pt:"#f59e0b",alm2_pt:"#f59e0b",alm1_mp:"#60a5fa",alm2_mp:"#60a5fa",recepcion:"#a78bfa"};
+const FORMS_KEY="inspectpro-local-v1";
+const TEMP_KEY="inspectpro-temp-v1";
+const TEMP_MIN=15,TEMP_MAX=25,CHART_MAX=50;
+const TEMP_AREAS=["Almacén 1","Almacén 2"];
+
+// ─── UTILIDADES ───────────────────────────────────────────────────────────────
+const genId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const fmtDate=iso=>{try{return new Date(iso).toLocaleDateString("es-MX",{day:"2-digit",month:"short",year:"numeric"});}catch(e){return iso||"";}};
+const fmtTime=d=>d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const MONTH_NAME=new Date().toLocaleDateString("es-MX",{month:"long",year:"numeric"});
+
+function getMonthDays(){
+  const today=new Date(),year=today.getFullYear(),month=today.getMonth();
+  const days=new Date(year,month+1,0).getDate();
+  const result=[];
+  for(let d=1;d<=days;d++){
+    const date=new Date(year,month,d);
+    result.push({dateStr:`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,label:String(d)});
+  }
+  return result;
+}
+const MONTH_DAYS=getMonthDays();
+const TODAY=todayStr();
+
+function saveLocal(key,data){try{localStorage.setItem(key,JSON.stringify(data));}catch(e){}}
+function loadLocal(key,def){try{const d=localStorage.getItem(key);return d?JSON.parse(d):def;}catch(e){return def;}}
+
+function initValues(fk){
+  const v={};
+  (AREA_FORMS[fk]?.fields||[]).forEach(f=>{
+    if(f.type==="check") v[f.key+"_check"]=null;
+    else if(f.type==="check_with_input"){v[f.key+"_check"]=null;v[f.key+"_val"]="";}
+    else v[f.key]="";
+  });
+  return v;
+}
+function calcScore(fields,values){
+  const cf=fields.filter(f=>f.type==="check"||f.type==="check_with_input");
+  if(!cf.length) return null;
+  return{pass:cf.filter(f=>values[f.key+"_check"]===true).length,fail:cf.filter(f=>values[f.key+"_check"]===false).length,na:cf.filter(f=>values[f.key+"_check"]==="na").length,total:cf.length};
+}
+function getGroups(flds){
+  const g={};
+  flds.filter(f=>f.type==="check"||f.type==="check_with_input").forEach(f=>{
+    const gn=f.group||"Lista de verificación";
+    if(!g[gn]) g[gn]=[];
+    g[gn].push(f);
+  });
+  return g;
+}
+
+// ─── PDF ──────────────────────────────────────────────────────────────────────
+function exportPDF(record){
+  const fmtVal=v=>v===true?"CUMPLE":v==="na"?"N/A":v===false?"NO CUMPLE":"—";
+  const colVal=v=>v===true?"#166534":v==="na"?"#3730a3":v===false?"#991b1b":"#666";
+  const bgVal=v=>v===true?"#f0fdf4":v==="na"?"#eef2ff":v===false?"#fef2f2":"#f9f9f9";
+  const textFs=(record.fields||[]).filter(f=>f.type==="text"||f.type==="date");
+  const checkFs=(record.fields||[]).filter(f=>f.type==="check"||f.type==="check_with_input");
+  const groups={};
+  checkFs.forEach(f=>{const g=f.group||"Lista de verificación";if(!groups[g])groups[g]=[];groups[g].push(f);});
+  const app=record.score?record.score.total-(record.score.na||0):0;
+  const pct=record.score?(app===0?100:Math.round((record.score.pass/app)*100)):null;
+  const sc=pct===null?"#6366f1":pct>=80?"#16a34a":pct>=50?"#d97706":"#dc2626";
+  const sl=pct===null?"REGISTRADO":pct>=80?"APROBADO":pct>=50?"OBSERVACIONES":"REPROBADO";
+  const textRows=textFs.map(f=>`<tr><td style="padding:5px 8px;font-size:11px;color:#555;width:40%;border-bottom:1px solid #eee">${f.label}</td><td style="padding:5px 8px;font-size:11px;font-weight:600;border-bottom:1px solid #eee">${record.values[f.key]||"—"}</td></tr>`).join("");
+  const groupSections=Object.entries(groups).map(([gn,gf])=>`<div style="margin-bottom:14px"><div style="background:#1a1a1a;color:#f59e0b;padding:5px 10px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;border-radius:4px 4px 0 0">${gn}</div>${gf.map((f,i)=>{const val=record.values[f.key+"_check"];const ival=record.values[f.key+"_val"];return`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:${bgVal(val)};border-bottom:1px solid #e5e7eb"><span style="font-size:10.5px;flex:1;padding-right:8px"><span style="color:#bbb;margin-right:4px">${i+1}.</span>${f.label}${f.type==="check_with_input"&&ival?` <b style="color:#d97706">(${ival}${f.inputType!=="date"?" °C":""})</b>`:""}</span><span style="font-size:9px;font-weight:700;color:${colVal(val)};white-space:nowrap;border:1px solid ${colVal(val)};border-radius:3px;padding:2px 6px">${fmtVal(val)}</span></div>`;}).join("")}</div>`).join("");
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Inspeccion_${record.area}_${record.fecha}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:20px;color:#111;background:#fff}@media print{body{padding:0}@page{margin:12mm}.no-print{display:none!important}}table{width:100%;border-collapse:collapse}.no-print{text-align:center;margin-bottom:16px}.no-print button{background:#1e3a5f;color:#60a5fa;border:none;border-radius:5px;padding:8px 20px;font-size:13px;cursor:pointer;font-weight:700}</style></head><body><div class="no-print"><button onclick="window.print()">🖨️ Guardar como PDF / Imprimir</button></div><div style="background:#1a1a1a;color:#fff;padding:14px 18px;border-radius:6px;margin-bottom:14px;border-left:4px solid #f59e0b"><div style="font-size:9px;letter-spacing:3px;color:#f59e0b;margin-bottom:3px">⬡ INSPECTPRO</div><div style="font-size:15px;font-weight:700;margin-bottom:2px">${record.title}</div><div style="font-size:11px;color:#aaa">${record.area}</div></div><div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap"><div style="background:#f9f9f9;border:1px solid #eee;border-radius:5px;padding:8px 12px;flex:1;min-width:120px"><div style="font-size:9px;color:#888;text-transform:uppercase;margin-bottom:2px">Inspector</div><div style="font-size:13px;font-weight:600">${record.inspector}</div></div><div style="background:#f9f9f9;border:1px solid #eee;border-radius:5px;padding:8px 12px;flex:1;min-width:120px"><div style="font-size:9px;color:#888;text-transform:uppercase;margin-bottom:2px">Fecha</div><div style="font-size:13px;font-weight:600">${record.fecha}</div></div>${record.score?`<div style="background:${sc}15;border:1px solid ${sc}55;border-radius:5px;padding:8px 12px;flex:1;min-width:120px;text-align:center"><div style="font-size:20px;font-weight:700;color:${sc}">${pct}%</div><div style="font-size:9px;font-weight:700;color:${sc}">${sl}</div><div style="font-size:9px;color:#666;margin-top:3px">✓${record.score.pass} ✗${record.score.fail} —${record.score.na||0}</div></div>`:""}</div>${textFs.length?`<div style="margin-bottom:14px"><div style="background:#1a1a1a;color:#f59e0b;padding:5px 10px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;border-radius:4px 4px 0 0">Datos generales</div><table style="border:1px solid #eee;border-top:none"><tbody>${textRows}</tbody></table></div>`:""}${groupSections}${record.notas?`<div style="margin-bottom:14px"><div style="background:#1a1a1a;color:#f59e0b;padding:5px 10px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;border-radius:4px 4px 0 0">Observaciones</div><div style="border:1px solid #eee;border-top:none;padding:10px;font-size:11px;color:#444;line-height:1.6">${record.notas}</div></div>`:""}<div style="margin-top:28px;display:flex;justify-content:space-between;padding-top:14px;border-top:1px solid #ddd"><div style="text-align:center;width:42%"><div style="height:30px"></div><div style="border-top:1px solid #333;padding-top:5px;font-size:9px;color:#777">Firma del Inspector — ${record.inspector}</div></div><div style="text-align:center;width:42%"><div style="height:30px"></div><div style="border-top:1px solid #333;padding-top:5px;font-size:9px;color:#777">Firma de Autorización</div></div></div></body></html>`;
+  const blob=new Blob([html],{type:"text/html"});
+  const url=URL.createObjectURL(blob);
+  const win=window.open(url,"_blank");
+  if(!win){const a=document.createElement("a");a.href=url;a.download=`Inspeccion_${record.area}_${record.fecha}.html`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
+  setTimeout(()=>URL.revokeObjectURL(url),8000);
+}
+
+// ─── ESTILOS COMUNES ──────────────────────────────────────────────────────────
+const S={
+  app:{background:"#0f0f0f",minHeight:"100vh",color:"#e5e5e5",fontFamily:"'Courier New',monospace"},
+  hdr:{background:"#1a1a1a",borderBottom:"2px solid #f59e0b",padding:"13px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10},
+  logo:{fontSize:16,fontWeight:700,color:"#f59e0b",letterSpacing:3},
+  sub:{fontSize:9,color:"#555",letterSpacing:1},
+  nav:{display:"flex",gap:7,alignItems:"center"},
+  body:{maxWidth:900,margin:"0 auto",padding:"24px 14px"},
+  card:{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:20,marginBottom:16},
+  lbl:{fontSize:10,color:"#f59e0b",letterSpacing:2,textTransform:"uppercase",display:"block",marginBottom:5},
+  inp:{background:"#0f0f0f",color:"#e5e5e5",border:"1px solid #333",borderRadius:4,padding:"7px 10px",width:"100%",fontSize:12,fontFamily:"inherit",boxSizing:"border-box"},
+  sel:{background:"#0f0f0f",color:"#e5e5e5",border:"1px solid #333",borderRadius:4,padding:"7px 10px",width:"100%",fontSize:12,fontFamily:"inherit"},
+  ta:{background:"#0f0f0f",color:"#e5e5e5",border:"1px solid #333",borderRadius:4,padding:"9px 11px",width:"100%",fontSize:12,fontFamily:"inherit",resize:"vertical",minHeight:80,boxSizing:"border-box"},
+  g2:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12},
+  secTit:{fontSize:11,color:"#f59e0b",letterSpacing:2,textTransform:"uppercase",marginBottom:13,fontWeight:700},
+  grpHdr:{background:"#222",borderRadius:5,padding:"7px 12px",marginBottom:9,display:"flex",justifyContent:"space-between",alignItems:"center"},
+  chkRow:v=>({padding:"10px 13px",background:v===true?"#052e16":v===false?"#2d0a0a":v==="na"?"#1a1a2a":"#111",borderRadius:5,marginBottom:6,border:"1px solid "+(v===true?"#166534":v===false?"#991b1b":v==="na"?"#3730a3":"#222")}),
+  btnGrp:{display:"flex",gap:5,flexShrink:0,marginTop:4},
+  cbtn:(c,bg)=>({background:bg,color:c,border:"none",borderRadius:4,padding:"5px 11px",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}),
+  pBtn:{background:"#f59e0b",color:"#0f0f0f",border:"none",borderRadius:6,padding:"11px 22px",cursor:"pointer",fontSize:13,fontWeight:700,letterSpacing:2,width:"100%"},
+  nBtn:a=>({background:a?"#f59e0b":"transparent",color:a?"#0f0f0f":"#888",border:"1px solid "+(a?"#f59e0b":"#333"),borderRadius:4,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:700}),
+  pdfBtn:{background:"#1e3a5f",color:"#60a5fa",border:"1px solid #2d5a9e",borderRadius:5,padding:"8px 16px",cursor:"pointer",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:6},
+  hRow:{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:"#111",borderRadius:6,marginBottom:7,border:"1px solid #222",cursor:"pointer"},
+  tempInp:{background:"#0a1a0a",color:"#e5e5e5",border:"1px solid #166534",borderRadius:4,padding:"4px 8px",fontSize:11,fontFamily:"inherit",width:80,marginTop:6},
+  dateInp:{background:"#0a1a0a",color:"#e5e5e5",border:"1px solid #3730a3",borderRadius:4,padding:"4px 8px",fontSize:11,fontFamily:"inherit",width:135,marginTop:6},
+};
+
+// ─── COMPONENTES ──────────────────────────────────────────────────────────────
+function StatusBadge({score}){
+  if(!score) return h("span",{style:{background:"#1a1a2e",color:"#818cf8",border:"1px solid #818cf8",borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:700}},"REGISTRADO");
+  const app=score.total-(score.na||0);
+  const pct=app===0?100:Math.round((score.pass/app)*100);
+  const color=pct>=80?"#22c55e":pct>=50?"#f59e0b":"#ef4444";
+  const label=pct>=80?"APROBADO":pct>=50?"OBSERV.":"REPROBADO";
+  return h("span",{style:{background:color+"22",color,border:`1px solid ${color}`,borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:700}},`${label} ${pct}%`);
+}
+
+// ─── GRÁFICA DE TEMPERATURA ───────────────────────────────────────────────────
+function TempChart({records,area}){
+  const canvasRef=useRef(null);
+  useEffect(()=>{
+    const canvas=canvasRef.current;
+    if(!canvas) return;
+    const ctx=canvas.getContext("2d");
+    const W=canvas.width,H=canvas.height;
+    const PL=45,PR=20,PT=20,PB=50;
+    const CW=W-PL-PR,CH=H-PT-PB;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,W,H);
+    // Y grid
+    [0,5,10,15,20,25,30,35,40,45,50].forEach(t=>{
+      const y=PT+CH-(t/CHART_MAX)*CH;
+      ctx.strokeStyle="#e5e7eb"; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(PL+CW,y); ctx.stroke();
+      ctx.fillStyle="#666"; ctx.font="10px 'Courier New'"; ctx.textAlign="right";
+      ctx.fillText(`${t}°`,PL-5,y+4);
+    });
+    // Range band
+    const yMin=PT+CH-(TEMP_MIN/CHART_MAX)*CH;
+    const yMax=PT+CH-(TEMP_MAX/CHART_MAX)*CH;
+    ctx.fillStyle="rgba(34,197,94,0.07)"; ctx.fillRect(PL,yMax,CW,yMin-yMax);
+    ctx.strokeStyle="rgba(34,197,94,0.35)"; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(PL,yMin); ctx.lineTo(PL+CW,yMin); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PL,yMax); ctx.lineTo(PL+CW,yMax); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle="rgba(34,197,94,0.6)"; ctx.font="8px 'Courier New'"; ctx.textAlign="left";
+    ctx.fillText("25°C",PL+3,yMax-3); ctx.fillText("15°C",PL+3,yMin+10);
+    // X axis
+    const areaKey=area==="Almacén 1"?"alm1":"alm2";
+    const areaRecs=records[areaKey]||[];
+    const byDay={};
+    areaRecs.forEach(r=>{if(!byDay[r.date]) byDay[r.date]=[];byDay[r.date].push(r);});
+    const days=MONTH_DAYS;
+    const bW=CW/days.length;
+    days.forEach((day,i)=>{
+      const x=PL+i*bW+bW/2;
+      if(day.dateStr===TODAY){ctx.fillStyle="rgba(245,158,11,0.07)";ctx.fillRect(PL+i*bW,PT,bW,CH);}
+      if(parseInt(day.label)%5===0||day.dateStr===TODAY){
+        ctx.fillStyle=day.dateStr===TODAY?"#d97706":"#999";
+        ctx.font=day.dateStr===TODAY?"bold 9px 'Courier New'":"9px 'Courier New'";
+        ctx.textAlign="center"; ctx.fillText(day.label,x,PT+CH+14);
+      }
+    });
+    // Points & lines
+    const pts=[];
+    days.forEach((day,i)=>{
+      (byDay[day.dateStr]||[]).forEach(r=>{
+        const x=PL+i*bW+bW/2;
+        const y=PT+CH-(r.temp/CHART_MAX)*CH;
+        pts.push({x,y,temp:r.temp});
+      });
+    });
+    if(pts.length>1){
+      ctx.strokeStyle="#3b82f6"; ctx.lineWidth=2;
+      ctx.beginPath(); pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke();
+    }
+    pts.forEach(p=>{
+      const ok=p.temp>=TEMP_MIN&&p.temp<=TEMP_MAX;
+      const col=ok?"#22c55e":"#ef4444";
+      ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fillStyle=col+"33"; ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fillStyle=col; ctx.fill();
+      ctx.fillStyle=col; ctx.font="bold 9px 'Courier New'"; ctx.textAlign="center";
+      ctx.fillText(`${p.temp}°`,p.x,p.y-8);
+    });
+    // Axes
+    ctx.strokeStyle="#999"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(PL,PT); ctx.lineTo(PL,PT+CH); ctx.lineTo(PL+CW,PT+CH); ctx.stroke();
+    ctx.fillStyle="#333"; ctx.font="9px 'Courier New'"; ctx.textAlign="center";
+    ctx.fillText(MONTH_NAME.toUpperCase(),W/2,H-6);
+  },[records,area]);
+  return h("canvas",{ref:canvasRef,width:800,height:280,style:{width:"100%",height:"auto",borderRadius:6,display:"block",background:"#f8fafc"}});
+}
+
+// ─── EXPORTAR GRÁFICA TEMPERATURA A PDF ──────────────────────────────────────
+function exportTempPDF(records, area, allRecs, inRange, outOfRange, avgTemp){
+  const areaKey=area==="Almacén 1"?"alm1":"alm2";
+  const areaRecs=records[areaKey]||[];
+  const byDay={};
+  areaRecs.forEach(r=>{if(!byDay[r.date]) byDay[r.date]=[];byDay[r.date].push(r);});
+
+  const tableRows=[...areaRecs].sort((a,b)=>a.date.localeCompare(b.date)).map(r=>{
+    const ok=r.temp>=TEMP_MIN&&r.temp<=TEMP_MAX;
+    return `<tr>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${r.date}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${(()=>{ const h=parseInt((r.time||"").split(":")[0]); const icon=h<12?"☀️":"🌙"; return r.reading==="1"?"1ª "+icon:"2ª "+icon; })()}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px">${r.time}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px;font-weight:700;color:${ok?"#16a34a":"#dc2626"}">${r.temp}°C</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:11px"><span style="background:${ok?"#f0fdf4":"#fef2f2"};color:${ok?"#166534":"#991b1b"};border:1px solid ${ok?"#166534":"#991b1b"};border-radius:3px;padding:2px 6px;font-size:9px;font-weight:700">${ok?"CORRECTO":"ALERTA"}</span></td>
+    </tr>`;
+  }).join("");
+
+  // Build canvas chart as image
+  const canvas=document.createElement("canvas");
+  canvas.width=900; canvas.height=320;
+  const ctx=canvas.getContext("2d");
+  const W=canvas.width,H=canvas.height;
+  const PL=50,PR=20,PT=24,PB=54,CW=W-PL-PR,CH=H-PT-PB;
+  ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,W,H);
+  [0,5,10,15,20,25,30,35,40,45,50].forEach(t=>{
+    const y=PT+CH-(t/CHART_MAX)*CH;
+    ctx.strokeStyle="#e5e7eb"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(PL+CW,y); ctx.stroke();
+    ctx.fillStyle="#555"; ctx.font="11px Arial"; ctx.textAlign="right";
+    ctx.fillText(`${t}°`,PL-6,y+4);
+  });
+  const yMin=PT+CH-(TEMP_MIN/CHART_MAX)*CH;
+  const yMax=PT+CH-(TEMP_MAX/CHART_MAX)*CH;
+  ctx.fillStyle="rgba(34,197,94,0.08)"; ctx.fillRect(PL,yMax,CW,yMin-yMax);
+  ctx.strokeStyle="rgba(34,197,94,0.5)"; ctx.setLineDash([5,5]); ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(PL,yMin); ctx.lineTo(PL+CW,yMin); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PL,yMax); ctx.lineTo(PL+CW,yMax); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle="rgba(34,197,94,0.8)"; ctx.font="10px Arial"; ctx.textAlign="left";
+  ctx.fillText("25°C",PL+4,yMax-4); ctx.fillText("15°C",PL+4,yMin+12);
+  const days=MONTH_DAYS, bW=CW/days.length;
+  days.forEach((day,i)=>{
+    const x=PL+i*bW+bW/2;
+    if(day.dateStr===TODAY){ctx.fillStyle="rgba(245,158,11,0.12)";ctx.fillRect(PL+i*bW,PT,bW,CH);}
+    if(parseInt(day.label)%5===0||day.dateStr===TODAY){
+      ctx.fillStyle=day.dateStr===TODAY?"#d97706":"#888";
+      ctx.font=day.dateStr===TODAY?"bold 10px Arial":"10px Arial";
+      ctx.textAlign="center"; ctx.fillText(day.label,x,PT+CH+16);
+    }
+  });
+  const pts=[];
+  days.forEach((day,i)=>{
+    (byDay[day.dateStr]||[]).forEach(r=>{
+      const x=PL+i*bW+bW/2;
+      const y=PT+CH-(r.temp/CHART_MAX)*CH;
+      pts.push({x,y,temp:r.temp});
+    });
+  });
+  if(pts.length>1){
+    ctx.strokeStyle="#3b82f6"; ctx.lineWidth=2.5;
+    ctx.beginPath(); pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke();
+  }
+  pts.forEach(p=>{
+    const ok=p.temp>=TEMP_MIN&&p.temp<=TEMP_MAX;
+    const col=ok?"#22c55e":"#ef4444";
+    ctx.beginPath(); ctx.arc(p.x,p.y,6,0,Math.PI*2); ctx.fillStyle=col+"44"; ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x,p.y,3.5,0,Math.PI*2); ctx.fillStyle=col; ctx.fill();
+    ctx.fillStyle=col; ctx.font="bold 10px Arial"; ctx.textAlign="center";
+    ctx.fillText(`${p.temp}°`,p.x,p.y-10);
+  });
+  ctx.strokeStyle="#aaa"; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(PL,PT); ctx.lineTo(PL,PT+CH); ctx.lineTo(PL+CW,PT+CH); ctx.stroke();
+  ctx.fillStyle="#666"; ctx.font="10px Arial"; ctx.textAlign="center";
+  ctx.fillText(MONTH_NAME.toUpperCase(),W/2,H-8);
+  const chartImg=canvas.toDataURL("image/png");
+
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Temperaturas_${area}_${MONTH_NAME}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:20px;color:#111;background:#fff}
+  @media print{body{padding:0}@page{margin:12mm}.no-print{display:none!important}}
+  table{width:100%;border-collapse:collapse}
+  .no-print{text-align:center;margin-bottom:16px}
+  .no-print button{background:#1e3a5f;color:#60a5fa;border:none;border-radius:5px;padding:8px 20px;font-size:13px;cursor:pointer;font-weight:700}
+  </style></head><body>
+  <div class="no-print"><button onclick="window.print()">🖨️ Guardar como PDF / Imprimir</button></div>
+  <div style="background:#1a1a1a;color:#fff;padding:14px 18px;border-radius:6px;margin-bottom:14px;border-left:4px solid #60a5fa">
+    <div style="font-size:9px;letter-spacing:3px;color:#60a5fa;margin-bottom:3px">⬡ INSPECTPRO — CONTROL DE TEMPERATURAS</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:2px">${area}</div>
+    <div style="font-size:11px;color:#aaa">${MONTH_NAME} · Rango aceptable: ${TEMP_MIN}°C – ${TEMP_MAX}°C</div>
+  </div>
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="background:#f9f9f9;border:1px solid #eee;border-radius:5px;padding:8px 14px;flex:1;min-width:110px;text-align:center">
+      <div style="font-size:22px;font-weight:700;color:#d97706">${allRecs.length}</div>
+      <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px">Registros</div>
+    </div>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:5px;padding:8px 14px;flex:1;min-width:110px;text-align:center">
+      <div style="font-size:22px;font-weight:700;color:#16a34a">${inRange}</div>
+      <div style="font-size:9px;color:#166534;text-transform:uppercase;letter-spacing:1px">En rango</div>
+    </div>
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:5px;padding:8px 14px;flex:1;min-width:110px;text-align:center">
+      <div style="font-size:22px;font-weight:700;color:#dc2626">${outOfRange}</div>
+      <div style="font-size:9px;color:#991b1b;text-transform:uppercase;letter-spacing:1px">Fuera rango</div>
+    </div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;padding:8px 14px;flex:1;min-width:110px;text-align:center">
+      <div style="font-size:22px;font-weight:700;color:#1d4ed8">${avgTemp!==null?`${avgTemp}°C`:"—"}</div>
+      <div style="font-size:9px;color:#1e40af;text-transform:uppercase;letter-spacing:1px">Promedio</div>
+    </div>
+  </div>
+  <div style="margin-bottom:16px;border:1px solid #eee;border-radius:6px;overflow:hidden">
+    <div style="background:#1a1a1a;color:#60a5fa;padding:6px 12px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase">GRÁFICA DE TEMPERATURA — ${MONTH_NAME}</div>
+    <img src="${chartImg}" style="width:100%;display:block"/>
+    <div style="padding:6px 12px;background:#f9f9f9;font-size:9px;color:#888;display:flex;gap:16px">
+      <span>● Verde = Dentro del rango (${TEMP_MIN}-${TEMP_MAX}°C)</span>
+      <span>● Rojo = Fuera del rango</span>
+      <span>── Líneas punteadas = límites aceptables</span>
+    </div>
+  </div>
+  ${allRecs.length>0?`<div style="margin-bottom:16px">
+    <div style="background:#1a1a1a;color:#60a5fa;padding:6px 12px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;border-radius:4px 4px 0 0">REGISTROS DEL MES</div>
+    <table style="border:1px solid #eee;border-top:none">
+      <thead><tr>
+        <th style="padding:6px 8px;text-align:left;background:#f9f9f9;font-size:10px;color:#555;border-bottom:1px solid #eee">Fecha</th>
+        <th style="padding:6px 8px;text-align:left;background:#f9f9f9;font-size:10px;color:#555;border-bottom:1px solid #eee">Lectura</th>
+        <th style="padding:6px 8px;text-align:left;background:#f9f9f9;font-size:10px;color:#555;border-bottom:1px solid #eee">Hora</th>
+        <th style="padding:6px 8px;text-align:left;background:#f9f9f9;font-size:10px;color:#555;border-bottom:1px solid #eee">Temp °C</th>
+        <th style="padding:6px 8px;text-align:left;background:#f9f9f9;font-size:10px;color:#555;border-bottom:1px solid #eee">Estado</th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  </div>`:""}
+  <div style="margin-top:28px;display:flex;justify-content:space-between;padding-top:14px;border-top:1px solid #ddd">
+    <div style="text-align:center;width:42%"><div style="height:28px"></div><div style="border-top:1px solid #333;padding-top:5px;font-size:9px;color:#777">Firma del Responsable</div></div>
+    <div style="text-align:center;width:42%"><div style="height:28px"></div><div style="border-top:1px solid #333;padding-top:5px;font-size:9px;color:#777">Firma de Autorización</div></div>
+  </div>
+  </body></html>`;
+
+  const blob=new Blob([html],{type:"text/html"});
+  const url=URL.createObjectURL(blob);
+  const win=window.open(url,"_blank");
+  if(!win){const a=document.createElement("a");a.href=url;a.download=`Temperaturas_${area}_${MONTH_NAME}.html`;document.body.appendChild(a);a.click();document.body.removeChild(a);}
+  setTimeout(()=>URL.revokeObjectURL(url),8000);
+}
+
+// ─── MÓDULO TEMPERATURAS ──────────────────────────────────────────────────────
+function TempModule({onBack}){
+  const [records,setRecords]=useState(()=>loadLocal(TEMP_KEY,{alm1:[],alm2:[]}));
+  const [activeArea,setActiveArea]=useState("Almacén 1");
+  const [subView,setSubView]=useState("chart");
+  const [temp,setTemp]=useState("");
+  const [reading,setReading]=useState("1");
+  const [saved,setSaved]=useState(false);
+  const [error,setError]=useState("");
+  const areaKey=activeArea==="Almacén 1"?"alm1":"alm2";
+  const todayRecs=(records[areaKey]||[]).filter(r=>r.date===TODAY);
+  const reading1=todayRecs.find(r=>r.reading==="1");
+  const reading2=todayRecs.find(r=>r.reading==="2");
+  const allRecs=records[areaKey]||[];
+  const outOfRange=allRecs.filter(r=>r.temp<TEMP_MIN||r.temp>TEMP_MAX).length;
+  const inRange=allRecs.filter(r=>r.temp>=TEMP_MIN&&r.temp<=TEMP_MAX).length;
+  const avgTemp=allRecs.length?Math.round((allRecs.reduce((s,r)=>s+r.temp,0)/allRecs.length)*10)/10:null;
+
+  function handleSave(){
+    const t=parseFloat(temp);
+    if(isNaN(t)||t<0||t>50){setError("Ingresa una temperatura válida entre 0 y 50 °C");return;}
+    if(reading==="1"&&reading1){setError("Ya registraste la 1ª lectura de hoy");return;}
+    if(reading==="2"&&reading2){setError("Ya registraste la 2ª lectura de hoy");return;}
+    setError("");
+    const rec={id:genId(),date:TODAY,time:fmtTime(new Date()),temp:t,reading,area:activeArea};
+    const nr={...records,[areaKey]:[...allRecs,rec]};
+    setRecords(nr); saveLocal(TEMP_KEY,nr);
+    setTemp(""); setSaved(true);
+    setTimeout(()=>{setSaved(false);setSubView("chart");},1500);
+  }
+
+  const readBtn=(a,c)=>({background:a?c+"22":"#111",color:a?c:"#555",border:`1px solid ${a?c:"#333"}`,borderRadius:5,padding:"10px 18px",cursor:"pointer",fontSize:12,fontWeight:700,flex:1});
+
+  return h("div",{style:S.app},
+    h("div",{style:S.hdr},
+      h("div",null,h("div",{style:S.logo},"⬡ INSPECTPRO"),h("div",{style:S.sub},"Control de Temperaturas — "+MONTH_NAME)),
+      h("div",{style:S.nav},
+        h("button",{style:S.nBtn(subView==="chart"),onClick:()=>setSubView("chart")},"📊 Gráfica"),
+        h("button",{style:S.nBtn(subView==="register"),onClick:()=>setSubView("register")},"+ Registrar"),
+        h("button",{style:{...S.nBtn(false),borderColor:"#f59e0b44"},onClick:onBack},"← Inicio")
+      )
+    ),
+    h("div",{style:S.body},
+      h("div",{style:{display:"flex",gap:10,marginBottom:18}},
+        ...TEMP_AREAS.map(a=>h("button",{key:a,style:{background:a===activeArea?"#60a5fa22":"transparent",color:a===activeArea?"#60a5fa":"#666",border:"1px solid "+(a===activeArea?"#60a5fa":"#333"),borderRadius:5,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700,flex:1},onClick:()=>setActiveArea(a)},a))
+      ),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:18}},
+        ...[{label:"Registros del mes",value:allRecs.length,color:"#f59e0b"},{label:"Dentro del rango",value:inRange,color:"#22c55e"},{label:"Fuera del rango",value:outOfRange,color:"#ef4444"},{label:"Temp. promedio",value:avgTemp!==null?`${avgTemp}°C`:"—",color:"#60a5fa"}]
+          .map(s=>h("div",{key:s.label,style:{...S.card,textAlign:"center",borderColor:s.color+"44",padding:14}},
+            h("div",{style:{fontSize:26,fontWeight:700,color:s.color}},s.value),
+            h("div",{style:{fontSize:9,color:"#666",letterSpacing:1,textTransform:"uppercase",marginTop:3}},s.label)
+          ))
+      ),
+      subView==="chart"&&h("div",null,
+        h("div",{style:{...S.card,padding:16,background:"#fff",border:"1px solid #e2e8f0"}},
+          h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+            h("div",{style:S.secTit},`${activeArea} — ${MONTH_NAME}`),
+            h("div",{style:{display:"flex",gap:10,alignItems:"center"}},
+              h("div",{style:{display:"flex",gap:12,fontSize:10}},
+                h("span",{style:{color:"#22c55e"}},"● En rango"),
+                h("span",{style:{color:"#ef4444"}},"● Fuera"),
+                h("span",{style:{color:"rgba(34,197,94,0.5)"}},"── 15-25°C")
+              ),
+              h("button",{style:{...S.pdfBtn,padding:"6px 12px",fontSize:10},onClick:()=>exportTempPDF(records,activeArea,allRecs,inRange,outOfRange,avgTemp)},"📄 PDF")
+            )
+          ),
+          h(TempChart,{records,area:activeArea})
+        ),
+        h("div",{style:S.card},
+          h("div",{style:S.secTit},"Lecturas de hoy — "+new Date().toLocaleDateString("es-MX",{weekday:"long",day:"2-digit",month:"long"})),
+          h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}},
+            ...[{num:"1",label:"1ª Lectura "+(reading1?(parseInt((reading1.time||"").split(":")[0])<12?"☀️":"🌙"):new Date().getHours()<12?"☀️":"🌙"),data:reading1},{num:"2",label:"2ª Lectura "+(reading2?(parseInt((reading2.time||"").split(":")[0])<12?"☀️":"🌙"):new Date().getHours()<12?"☀️":"🌙"),data:reading2}].map(r=>
+              h("div",{key:r.num,style:{background:r.data?(r.data.temp>=TEMP_MIN&&r.data.temp<=TEMP_MAX?"#052e16":"#2d0a0a"):"#111",border:"1px solid "+(r.data?(r.data.temp>=TEMP_MIN&&r.data.temp<=TEMP_MAX?"#166534":"#991b1b"):"#222"),borderRadius:6,padding:14}},
+                h("div",{style:{fontSize:10,color:"#666",letterSpacing:1,textTransform:"uppercase",marginBottom:6}},r.label),
+                r.data?h("div",null,
+                  h("div",{style:{fontSize:28,fontWeight:700,color:r.data.temp>=TEMP_MIN&&r.data.temp<=TEMP_MAX?"#22c55e":"#ef4444"}},`${r.data.temp}°C`),
+                  h("div",{style:{fontSize:11,color:"#666",marginTop:4}},"🕐 "+r.data.time),
+                  h("div",{style:{fontSize:10,color:r.data.temp>=TEMP_MIN&&r.data.temp<=TEMP_MAX?"#22c55e":"#ef4444",marginTop:3}},r.data.temp>=TEMP_MIN&&r.data.temp<=TEMP_MAX?"✓ Dentro del rango":"✗ Fuera del rango")
+                ):h("div",null,
+                  h("div",{style:{fontSize:22,color:"#333",marginBottom:6}},"—"),
+                  h("div",{style:{fontSize:10,color:"#444",marginBottom:8}},"Sin registrar"),
+                  h("button",{style:{background:"#f59e0b",color:"#0f0f0f",border:"none",borderRadius:4,padding:"6px 12px",cursor:"pointer",fontSize:10,fontWeight:700},onClick:()=>{setReading(r.num);setSubView("register");}},`+ Registrar`)
+                )
+              )
+            )
+          )
+        ),
+        allRecs.length>0&&h("div",{style:S.card},
+          h("div",{style:S.secTit},"Últimos registros"),
+          h("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11}},
+            h("thead",null,h("tr",null,...["Fecha","Lectura","Hora","Temp °C","Estado"].map(col=>h("th",{key:col,style:{padding:"6px 10px",textAlign:"left",color:"#f59e0b",borderBottom:"1px solid #2a2a2a",fontSize:10}},col)))),
+            h("tbody",null,...[...allRecs].reverse().slice(0,8).map(r=>{
+              const ok=r.temp>=TEMP_MIN&&r.temp<=TEMP_MAX;
+              return h("tr",{key:r.id,style:{borderBottom:"1px solid #1a1a1a"}},
+                h("td",{style:{padding:"6px 10px",color:"#888"}},r.date),
+                h("td",{style:{padding:"6px 10px",color:"#666"}},(()=>{ const h=parseInt((r.time||"").split(":")[0]); const icon=h<12?"☀️":"🌙"; return r.reading==="1"?"1ª "+icon:"2ª "+icon; })()),
+                h("td",{style:{padding:"6px 10px",color:"#666"}},r.time),
+                h("td",{style:{padding:"6px 10px",fontWeight:700,color:ok?"#22c55e":"#ef4444"}},`${r.temp}°C`),
+                h("td",{style:{padding:"6px 10px"}},h("span",{style:{background:ok?"#052e16":"#2d0a0a",color:ok?"#22c55e":"#ef4444",border:`1px solid ${ok?"#166534":"#991b1b"}`,borderRadius:3,padding:"2px 7px",fontSize:9,fontWeight:700}},ok?"CORRECTO":"ALERTA"))
+              );
+            }))
+          )
+        )
+      ),
+      subView==="register"&&h("div",{style:S.card},
+        h("div",{style:S.secTit},`Registrar Temperatura — ${activeArea}`),
+        h("div",{style:{marginBottom:18}},
+          h("label",{style:S.lbl},"Lectura del día"),
+          h("div",{style:{display:"flex",gap:10}},
+            h("button",{style:readBtn(reading==="1","#60a5fa"),onClick:()=>setReading("1")},
+              h("div",null,(new Date().getHours()<12?"☀️":"🌙")+" 1ª Lectura"),
+              h("div",{style:{fontSize:9,marginTop:3,color:reading1?"#ef4444":"#22c55e"}},reading1?"Ya registrada":"Pendiente")
+            ),
+            h("button",{style:readBtn(reading==="2","#a78bfa"),onClick:()=>setReading("2")},
+              h("div",null,(new Date().getHours()<12?"☀️":"🌙")+" 2ª Lectura"),
+              h("div",{style:{fontSize:9,marginTop:3,color:reading2?"#ef4444":"#22c55e"}},reading2?"Ya registrada":"Pendiente")
+            )
+          )
+        ),
+        h("div",{style:{marginBottom:18}},
+          h("label",{style:S.lbl},"Temperatura (°C)"),
+          h("div",{style:{display:"flex",alignItems:"center",gap:12}},
+            h("input",{type:"number",min:"0",max:"50",step:"0.1",style:{...S.inp,width:140,fontSize:20,textAlign:"center",padding:"10px"},value:temp,placeholder:"18.5",onChange:e=>setTemp(e.target.value)}),
+            h("span",{style:{fontSize:18,color:"#666"}},"°C"),
+            temp&&!isNaN(parseFloat(temp))&&h("span",{style:{fontSize:12,fontWeight:700,color:parseFloat(temp)>=TEMP_MIN&&parseFloat(temp)<=TEMP_MAX?"#22c55e":"#ef4444"}},
+              parseFloat(temp)>=TEMP_MIN&&parseFloat(temp)<=TEMP_MAX?"✓ En rango":"✗ Fuera de rango"
+            )
+          )
+        ),
+        h("div",{style:{background:"#111",border:"1px solid #222",borderRadius:6,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:10}},
+          h("span",{style:{fontSize:16}},"🕐"),
+          h("div",null,
+            h("div",{style:{fontSize:10,color:"#666",textTransform:"uppercase",letterSpacing:1}},"Hora de registro"),
+            h("div",{style:{fontSize:14,fontWeight:700,color:"#f59e0b"}},fmtTime(new Date()))
+          ),
+          h("div",{style:{marginLeft:"auto",fontSize:10,color:"#444"}},"Se registra automáticamente")
+        ),
+        error&&h("div",{style:{background:"#2d0a0a",border:"1px solid #991b1b",borderRadius:5,padding:"10px",marginBottom:14,fontSize:12,color:"#ef4444"}},error),
+        saved?h("div",{style:{background:"#052e16",border:"1px solid #166534",borderRadius:6,padding:24,textAlign:"center"}},
+          h("div",{style:{fontSize:36,marginBottom:8}},"✅"),
+          h("div",{style:{color:"#22c55e",fontWeight:700,fontSize:14}},"TEMPERATURA REGISTRADA")
+        ):h("div",{style:{display:"flex",gap:10}},
+          h("button",{style:{...S.pBtn,opacity:temp?1:0.4},disabled:!temp,onClick:handleSave},"GUARDAR TEMPERATURA"),
+          h("button",{style:{...S.pBtn,background:"#222",color:"#888",flex:"0 0 auto",width:"auto"},onClick:()=>setSubView("chart")},"Cancelar")
+        )
+      )
+    )
+  );
+}
+
+// ─── APP PRINCIPAL ────────────────────────────────────────────────────────────
+function App(){
+  const [module,setModule]=useState("home"); // home | forms | temp
+  const [records,setRecords]=useState(()=>loadLocal(FORMS_KEY,[]));
+  const [sel,setSel]=useState(null);
+  const [fk,setFk]=useState(FORM_KEYS[0]);
+  const [inspector,setInspector]=useState(INSPECTORES[0]);
+  const [fecha,setFecha]=useState(TODAY);
+  const [vals,setVals]=useState(()=>initValues(FORM_KEYS[0]));
+  const [notas,setNotas]=useState("");
+  const [submitted,setSubmitted]=useState(false);
+  const [formView,setFormView]=useState("home"); // home | form | history | detail
+
+  const openForm=key=>{setFk(key);setVals(initValues(key));setNotas("");setFormView("form");setModule("forms");};
+  const setV=(k,v)=>setVals(prev=>({...prev,[k]:v}));
+  const fd=AREA_FORMS[fk];
+  const fields=fd?.fields||[];
+  const checkFs=fields.filter(f=>f.type==="check"||f.type==="check_with_input");
+  const textFs=fields.filter(f=>f.type==="text"||f.type==="date");
+  const allCk=checkFs.every(f=>vals[f.key+"_check"]!==null);
+  const allTx=textFs.every(f=>vals[f.key]!=="");
+  const allOk=allCk&&allTx;
+  const score=calcScore(fields,vals);
+
+  function submit(){
+    const rec={id:genId(),formKey:fk,area:fd.area,title:fd.title,inspector,fecha,values:vals,fields,score,notas,createdAt:new Date().toISOString()};
+    const nr=[rec,...records];
+    setRecords(nr); saveLocal(FORMS_KEY,nr); setSubmitted(true);
+    setTimeout(()=>{setSubmitted(false);setFormView("history");setVals(initValues(fk));setNotas("");},1500);
+  }
+
+  // ── Módulo temperaturas
+  if(module==="temp") return h(TempModule,{onBack:()=>setModule("home")});
+
+  // ── HOME principal
+  if(module==="home") return h("div",{style:S.app},
+    h("div",{style:S.hdr},
+      h("div",null,h("div",{style:S.logo},"⬡ INSPECTPRO"),h("div",{style:S.sub},"Sistema de inspección y calidad")),
+      h("div",{style:S.nav},
+        h("button",{style:S.nBtn(false),onClick:()=>{setFormView("history");setModule("forms");}},"Historial")
+      )
+    ),
+    h("div",{style:S.body},
+      h("div",{style:{background:"#0a1628",border:"1px solid #1e3a5f",borderRadius:6,padding:"9px 14px",marginBottom:16,display:"flex",gap:9,fontSize:11,color:"#60a5fa"}},
+        h("span",null,"💾"),h("span",null,"Datos guardados automáticamente en este navegador.")
+      ),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:22}},
+        ...[{label:"Total registros",value:records.length,color:"#f59e0b"},{label:"Aprobados",value:records.filter(r=>r.score&&(r.score.pass/(r.score.total-(r.score.na||0)||1))>=0.8).length,color:"#22c55e"},{label:"Con observaciones",value:records.filter(r=>r.score&&(r.score.pass/(r.score.total-(r.score.na||0)||1))<0.8).length,color:"#ef4444"}]
+          .map(s=>h("div",{key:s.label,style:{...S.card,textAlign:"center",borderColor:s.color+"44",padding:14}},
+            h("div",{style:{fontSize:32,fontWeight:700,color:s.color}},s.value),
+            h("div",{style:{fontSize:9,color:"#666",letterSpacing:1,textTransform:"uppercase",marginTop:2}},s.label)
+          ))
+      ),
+      // Botón temperaturas destacado
+      h("button",{onClick:()=>setModule("temp"),style:{background:"#0a1a2a",border:"2px solid #60a5fa44",borderRadius:8,padding:"16px 20px",cursor:"pointer",width:"100%",textAlign:"left",display:"flex",alignItems:"center",gap:14,marginBottom:16}},
+        h("span",{style:{fontSize:28}},"🌡️"),
+        h("div",null,
+          h("div",{style:{fontSize:12,fontWeight:700,color:"#60a5fa",letterSpacing:1}},`Control de Temperaturas`),
+          h("div",{style:{fontSize:10,color:"#555",marginTop:2}},"Almacén 1 y Almacén 2 — Gráfica mensual")
+        ),
+        h("span",{style:{marginLeft:"auto",color:"#60a5fa",fontSize:18}},"›")
+      ),
+      h("div",{style:S.card},
+        h("div",{style:S.secTit},"Formularios de inspección"),
+        h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
+          ...FORM_KEYS.map(key=>{
+            const def=AREA_FORMS[key],col=FORM_COLORS[key];
+            return h("button",{key,onClick:()=>openForm(key),style:{background:"#111",color:"#e5e5e5",border:`1px solid ${col}33`,borderRadius:7,padding:"13px 15px",cursor:"pointer",textAlign:"left",display:"flex",flexDirection:"column",gap:5}},
+              h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                h("span",{style:{fontSize:16}},FORM_ICONS[key]),
+                h("span",{style:{background:col+"22",color:col,borderRadius:4,padding:"2px 6px",fontSize:9,fontWeight:700}},def.area)
+              ),
+              h("div",{style:{fontSize:10,fontWeight:700,lineHeight:1.3}},def.title)
+            );
+          })
+        )
+      ),
+      records.length>0&&h("div",{style:S.card},
+        h("div",{style:S.secTit},"Últimos registros"),
+        ...records.slice(0,3).map(r=>
+          h("div",{key:r.id,style:S.hRow,onClick:()=>{setSel(r);setFormView("detail");setModule("forms");}},
+            h("span",{style:{fontSize:16}},FORM_ICONS[r.formKey]||"📋"),
+            h("div",{style:{flex:1}},
+              h("div",{style:{fontSize:12,fontWeight:700}},r.title),
+              h("div",{style:{fontSize:10,color:"#666"}},`${r.area} · ${r.inspector} · ${fmtDate(r.createdAt)}`)
+            ),
+            h(StatusBadge,{score:r.score}),
+            h("span",{style:{color:"#444"}},"›")
+          )
+        )
+      )
+    )
+  );
+
+  // ── MÓDULO FORMS
+  if(module==="forms"){
+    // FORM
+    if(formView==="form"){
+      const groups=getGroups(fields);
+      return h("div",{style:S.app},
+        h("div",{style:S.hdr},
+          h("div",null,h("div",{style:S.logo},"⬡ INSPECTPRO"),h("div",{style:S.sub},`${fd.area} — ${fd.title}`)),
+          h("div",{style:S.nav},h("button",{style:S.nBtn(false),onClick:()=>setModule("home")},"← Inicio"),h("button",{style:S.nBtn(false),onClick:()=>setFormView("history")},"Historial"))
+        ),
+        h("div",{style:S.body},
+          submitted?h("div",{style:{...S.card,textAlign:"center",borderColor:"#22c55e",padding:48}},
+            h("div",{style:{fontSize:44,marginBottom:10}},"✅"),
+            h("div",{style:{color:"#22c55e",fontSize:17,fontWeight:700,letterSpacing:2}},"REGISTRO GUARDADO")
+          ):h("div",null,
+            h("div",{style:{...S.card,borderColor:FORM_COLORS[fk]+"55",textAlign:"center",padding:13}},
+              h("div",{style:{fontSize:9,color:FORM_COLORS[fk],letterSpacing:2,textTransform:"uppercase",marginBottom:3}},fd.area),
+              h("div",{style:{fontSize:14,fontWeight:700}},fd.title)
+            ),
+            h("div",{style:S.card},
+              h("div",{style:S.secTit},"Datos generales"),
+              h("div",{style:S.g2},
+                h("div",null,h("label",{style:S.lbl},"Inspector"),h("select",{style:S.sel,value:inspector,onChange:e=>setInspector(e.target.value)},...INSPECTORES.map(i=>h("option",{key:i},i)))),
+                h("div",null,h("label",{style:S.lbl},"Fecha"),h("input",{type:"date",style:S.inp,value:fecha,onChange:e=>setFecha(e.target.value)}))
+              )
+            ),
+            textFs.length>0&&h("div",{style:S.card},
+              h("div",{style:S.secTit},"Información general"),
+              h("div",{style:S.g2},...textFs.map(f=>h("div",{key:f.key,style:{marginBottom:10}},
+                h("label",{style:S.lbl},f.label),
+                h("input",{type:f.type==="date"?"date":"text",style:S.inp,value:vals[f.key]||"",placeholder:f.placeholder||"",onChange:e=>setV(f.key,e.target.value)})
+              )))
+            ),
+            ...Object.entries(groups).map(([gn,gf])=>h("div",{key:gn,style:S.card},
+              h("div",{style:S.grpHdr},
+                h("span",{style:{fontSize:11,fontWeight:700,color:"#f59e0b"}},gn),
+                h("span",{style:{fontSize:10,color:"#555"}},`${gf.filter(f=>vals[f.key+"_check"]!==null).length}/${gf.length}`)
+              ),
+              ...gf.map((f,i)=>{
+                const v=vals[f.key+"_check"];
+                return h("div",{key:f.key,style:S.chkRow(v)},
+                  h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:6}},
+                    h("span",{style:{fontSize:12,flex:1,minWidth:120,paddingRight:6}},h("span",{style:{color:"#555",marginRight:4}},`${i+1}.`),f.label),
+                    h("div",{style:S.btnGrp},
+                      h("button",{style:S.cbtn(v===true?"#0f0f0f":"#22c55e",v===true?"#22c55e":"#1a2e1a"),onClick:()=>setV(f.key+"_check",true)},"✓ SÍ"),
+                      h("button",{style:S.cbtn(v===false?"#0f0f0f":"#ef4444",v===false?"#ef4444":"#2a1010"),onClick:()=>setV(f.key+"_check",false)},"✗ NO"),
+                      h("button",{style:S.cbtn(v==="na"?"#0f0f0f":"#818cf8",v==="na"?"#818cf8":"#1a1a2e"),onClick:()=>setV(f.key+"_check","na")},"— N/A")
+                    )
+                  ),
+                  f.type==="check_with_input"&&h("div",{style:{marginTop:6,display:"flex",alignItems:"center",gap:7}},
+                    h("input",{type:f.inputType||"text",style:f.inputType==="date"?S.dateInp:S.tempInp,value:vals[f.key+"_val"]||"",placeholder:f.placeholder||"",onChange:e=>setV(f.key+"_val",e.target.value)}),
+                    h("span",{style:{fontSize:10,color:"#666"}},f.inputType==="date"?"Fecha registrada":"°C registrado")
+                  )
+                );
+              })
+            )),
+            score&&allCk&&h("div",{style:{...S.card,borderColor:score.pass/(score.total-(score.na||0)||1)>=0.8?"#22c55e44":"#f59e0b44"}},
+              h("div",{style:S.secTit},"Resultado preliminar"),
+              h("div",{style:{display:"flex",gap:18,marginBottom:8}},
+                h("span",{style:{color:"#22c55e",fontSize:12}},`✓ Cumple: ${score.pass}`),
+                h("span",{style:{color:"#ef4444",fontSize:12}},`✗ No cumple: ${score.fail}`),
+                h("span",{style:{color:"#818cf8",fontSize:12}},`— N/A: ${score.na}`)
+              ),
+              h(StatusBadge,{score})
+            ),
+            h("div",{style:S.card},
+              h("label",{style:S.lbl},"Observaciones"),
+              h("textarea",{style:S.ta,value:notas,onChange:e=>setNotas(e.target.value),placeholder:"Observaciones, acciones correctivas o notas relevantes..."})
+            ),
+            h("button",{style:{...S.pBtn,opacity:allOk?1:0.4},disabled:!allOk,onClick:submit},"GUARDAR REGISTRO")
+          )
+        )
+      );
+    }
+
+    // HISTORY
+    if(formView==="history") return h("div",{style:S.app},
+      h("div",{style:S.hdr},
+        h("div",null,h("div",{style:S.logo},"⬡ INSPECTPRO"),h("div",{style:S.sub},"Historial")),
+        h("div",{style:S.nav},h("button",{style:S.nBtn(false),onClick:()=>setModule("home")},"← Inicio"))
+      ),
+      h("div",{style:S.body},
+        records.length===0?h("div",{style:{textAlign:"center",padding:60,color:"#444"}},
+          h("div",{style:{fontSize:44,marginBottom:10}},"📋"),
+          h("div",{style:{fontSize:14,marginBottom:8}},"Sin registros aún"),
+          h("button",{style:{...S.pBtn,maxWidth:200,margin:"16px auto 0"},onClick:()=>setModule("home")},"← Ir al inicio")
+        ):records.map(r=>h("div",{key:r.id,style:S.hRow,onClick:()=>{setSel(r);setFormView("detail");}},
+          h("span",{style:{fontSize:16}},FORM_ICONS[r.formKey]||"📋"),
+          h("div",{style:{flex:1}},
+            h("div",{style:{fontSize:12,fontWeight:700}},r.title),
+            h("div",{style:{fontSize:10,color:"#666",marginTop:2}},`${r.area} · ${r.inspector} · ${fmtDate(r.createdAt)}`)
+          ),
+          h(StatusBadge,{score:r.score}),
+          h("span",{style:{color:"#444"}},"›")
+        ))
+      )
+    );
+
+    // DETAIL
+    if(formView==="detail"&&sel){
+      const scf=sel.fields.filter(f=>f.type==="check"||f.type==="check_with_input");
+      const stf=sel.fields.filter(f=>f.type==="text"||f.type==="date");
+      const ac=FORM_COLORS[sel.formKey]||"#f59e0b";
+      const dg={};
+      scf.forEach(f=>{const g=f.group||"Lista de verificación";if(!dg[g])dg[g]=[];dg[g].push(f);});
+      return h("div",{style:S.app},
+        h("div",{style:S.hdr},
+          h("div",null,h("div",{style:S.logo},"⬡ INSPECTPRO"),h("div",{style:S.sub},"Detalle del registro")),
+          h("div",{style:S.nav},
+            h("button",{style:S.pdfBtn,onClick:()=>exportPDF(sel)},"📄 Exportar PDF"),
+            h("button",{style:S.nBtn(false),onClick:()=>setFormView("history")},"← Historial")
+          )
+        ),
+        h("div",{style:S.body},
+          h("div",{style:{...S.card,borderColor:ac+"44"}},
+            h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}},
+              h("div",null,
+                h("span",{style:{background:ac+"22",color:ac,border:`1px solid ${ac}44`,borderRadius:4,padding:"2px 8px",fontSize:9,fontWeight:700,display:"inline-block",marginBottom:5}},sel.area),
+                h("div",{style:{fontSize:13,fontWeight:700,marginBottom:3}},sel.title),
+                h("div",{style:{fontSize:11,color:"#aaa"}},sel.inspector),
+                h("div",{style:{fontSize:10,color:"#666"}},`${fmtDate(sel.createdAt)} · Fecha: ${sel.fecha}`)
+              ),
+              h(StatusBadge,{score:sel.score})
+            ),
+            sel.score&&h("div",{style:{display:"flex",gap:14,paddingTop:9,borderTop:"1px solid #222"}},
+              h("span",{style:{color:"#22c55e",fontSize:11}},`✓ Cumple: ${sel.score.pass}`),
+              h("span",{style:{color:"#ef4444",fontSize:11}},`✗ No cumple: ${sel.score.fail}`),
+              h("span",{style:{color:"#818cf8",fontSize:11}},`— N/A: ${sel.score.na||0}`),
+              h("span",{style:{color:"#666",fontSize:11}},`Total: ${sel.score.total}`)
+            )
+          ),
+          stf.length>0&&h("div",{style:S.card},
+            h("div",{style:S.secTit},"Información registrada"),
+            h("div",{style:S.g2},...stf.map(f=>h("div",{key:f.key,style:{marginBottom:11}},
+              h("div",{style:{fontSize:9,color:"#666",letterSpacing:1,textTransform:"uppercase",marginBottom:2}},f.label),
+              h("div",{style:{fontSize:12}},sel.values[f.key]||"—")
+            )))
+          ),
+          ...Object.entries(dg).map(([gn,gf])=>h("div",{key:gn,style:S.card},
+            h("div",{style:{...S.grpHdr,marginBottom:10}},h("span",{style:{fontSize:11,fontWeight:700,color:"#f59e0b"}},gn)),
+            ...gf.map((f,i)=>{
+              const val=sel.values[f.key+"_check"];
+              const ival=sel.values[f.key+"_val"];
+              return h("div",{key:f.key,style:{padding:"9px 13px",background:val===true?"#052e16":val==="na"?"#1a1a2a":"#2d0a0a",borderRadius:5,marginBottom:6,border:"1px solid "+(val===true?"#166534":val==="na"?"#3730a3":"#991b1b")}},
+                h("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}},
+                  h("span",{style:{fontSize:11,flex:1,paddingRight:8}},h("span",{style:{color:"#555",marginRight:4}},`${i+1}.`),f.label),
+                  h("span",{style:{fontSize:10,color:val===true?"#22c55e":val==="na"?"#818cf8":"#ef4444",fontWeight:700,flexShrink:0}},val===true?"CUMPLE":val==="na"?"N/A":"NO CUMPLE")
+                ),
+                f.type==="check_with_input"&&ival&&h("div",{style:{marginTop:4,fontSize:10,color:"#aaa"}},
+                  f.inputType==="date"?"Fecha:":"Temperatura:",
+                  h("span",{style:{color:"#f59e0b",fontWeight:700,marginLeft:4}},`${ival}${f.inputType!=="date"?" °C":""}`)
+                )
+              );
+            })
+          )),
+          sel.notas&&h("div",{style:S.card},
+            h("div",{style:S.secTit},"Observaciones"),
+            h("div",{style:{fontSize:11,color:"#aaa",lineHeight:1.7}},sel.notas)
+          ),
+          h("button",{style:{...S.pdfBtn,width:"100%",justifyContent:"center",padding:"12px"},onClick:()=>exportPDF(sel)},"📄 Exportar a PDF")
+        )
+      );
+    }
+  }
+  return null;
+}
+
+
+window.onerror = function(msg, src, line, col, err) {
+  document.getElementById('root').innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;background:#1a1a1a;min-height:100vh"><h2 style="color:#f59e0b">⬡ InspectPro — Error de carga</h2><p style="margin-top:12px">'+msg+'</p><p style="color:#666;margin-top:8px">Línea: '+line+' Col: '+col+'</p></div>';
+  return false;
+};
+try {
+  ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+} catch(e) {
+  document.getElementById('root').innerHTML = '<div style="color:#ef4444;padding:20px;font-family:monospace;background:#1a1a1a;min-height:100vh"><h2 style="color:#f59e0b">⬡ InspectPro — Error</h2><p style="margin-top:12px">'+e.message+'</p></div>';
+}
+
+</script>
+</body>
+</html>
